@@ -1,9 +1,9 @@
 // @ts-check
 
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import fastify from "fastify";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { articles } from "../db/schema/index.js";
+import { articles, comments } from "../db/schema/index.js";
 import init from "../server/plugin.js";
 
 // TODO: сейчас каждый тест оставляет после себя артефакты в БД
@@ -30,6 +30,23 @@ describe("requests", () => {
     const [article] = await app.db.select().from(articles).where(eq(articles.id, id)).limit(1);
 
     return article ?? null;
+  };
+
+  const findComments = async (articleId) =>
+    app.db
+      .select()
+      .from(comments)
+      .where(eq(comments.articleId, articleId))
+      .orderBy(asc(comments.createdAt), asc(comments.id));
+
+  const createArticle = async (title) => {
+    await app.inject({
+      method: "POST",
+      url: "/articles",
+      payload: { data: { title, content: `${title} content` } },
+    });
+
+    return findArticle({ title, content: `${title} content` });
   };
 
   beforeAll(async () => {
@@ -274,6 +291,110 @@ describe("requests", () => {
     });
 
     expect(response2.statusCode).toBe(200);
+  });
+
+  test("create comment - POST /articles/:id/comments", async () => {
+    const article = await createArticle("Article with comments");
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/articles/${article.id}/comments`,
+      payload: {
+        data: {
+          author: "Unique Comment Author",
+          content: "First comment content",
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(302);
+
+    const [comment] = await findComments(article.id);
+    expect(comment).toBeDefined();
+    expect(comment.author).toBe("Unique Comment Author");
+    expect(comment.content).toBe("First comment content");
+    // Имя сохраняется в БД, но не выводится на странице статьи.
+    expect(response.body).not.toContain("Unique Comment Author");
+  });
+
+  test("create comment with invalid data - 422", async () => {
+    const article = await createArticle("Article with invalid comment");
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/articles/${article.id}/comments`,
+      payload: {
+        data: { author: "Reader To Keep", content: "" },
+      },
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect(await findComments(article.id)).toHaveLength(0);
+    expect(response.body).toContain("Reader To Keep");
+  });
+
+  test("show comments - GET /articles/:id", async () => {
+    const article = await createArticle("Article with comment list");
+
+    for (const content of ["Alpha comment", "Beta comment"]) {
+      const response = await app.inject({
+        method: "POST",
+        url: `/articles/${article.id}/comments`,
+        payload: { data: { author: `Author ${content}`, content } },
+      });
+
+      expect(response.statusCode).toBe(302);
+    }
+
+    const stored = await findComments(article.id);
+    expect(stored.map((comment) => comment.content)).toEqual(["Alpha comment", "Beta comment"]);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/articles/${article.id}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain("Alpha comment");
+    expect(response.body).toContain("Beta comment");
+    expect(response.body.indexOf("Alpha comment")).toBeLessThan(
+      response.body.indexOf("Beta comment"),
+    );
+    expect(response.body).not.toContain("Author Alpha comment");
+    expect(response.body).not.toContain("Author Beta comment");
+  });
+
+  test("create comment for missing article - 404", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/articles/999999/comments",
+      payload: { data: { author: "Reader", content: "Orphan comment" } },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(await app.db.select().from(comments).where(eq(comments.articleId, 999999))).toHaveLength(
+      0,
+    );
+  });
+
+  test("delete article removes its comments", async () => {
+    const article = await createArticle("Article to delete with comment");
+
+    await app.inject({
+      method: "POST",
+      url: `/articles/${article.id}/comments`,
+      payload: { data: { author: "Reader", content: "Comment to delete" } },
+    });
+
+    expect(await findComments(article.id)).toHaveLength(1);
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `/articles/${article.id}`,
+    });
+
+    expect(response.statusCode).toBe(302);
+    expect(await findComments(article.id)).toHaveLength(0);
   });
 
   afterAll(async () => {

@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import i18next from "i18next";
 import { articles } from "../../db/schema/index.js";
 import { validateArticle } from "../validators/article.js";
+import { findComments } from "./comments.js";
 
 export default (app) => {
   const findArticle = async (id) => {
@@ -77,7 +78,16 @@ export default (app) => {
       return reply;
     })
     .get("/articles/:id", { name: "article" }, async (req, reply) => {
-      reply.render("articles/show", { article: await findArticle(req.params.id) });
+      const article = await findArticle(req.params.id);
+
+      if (!article) {
+        return reply.callNotFound();
+      }
+
+      reply.render("articles/show", {
+        article,
+        comments: await findComments(app, article.id),
+      });
       return reply;
     })
     .get("/articles/:id/edit", { name: "editArticle" }, async (req, reply) => {
