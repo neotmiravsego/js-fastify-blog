@@ -43,6 +43,28 @@ export default {
           placeholder: "Enter article content",
         },
       },
+      comment: {
+        author: {
+          label: "Name",
+        },
+        content: {
+          label: "Comment",
+          placeholder: "Enter your comment",
+        },
+        form: {
+          submit: "Post comment",
+        },
+        create: {
+          success: "Comment was added",
+          error: "Failed to add comment",
+        },
+      },
+      comments: {
+        index: {
+          header: "Comments",
+          empty: "No comments yet",
+        },
+      },
       articles: {
         index: {
           header: "Articles",

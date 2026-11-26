@@ -1,2 +1,37 @@
 <% layout("../layouts/application", { header: it.article.title }) %>
 <%~ include("../mixins/article", { content: it.article.content }) %>
+
+<section class="mt-10">
+  <h2 class="mb-4 text-2xl font-semibold"><%= it.t('views.comments.index.header') %></h2>
+  <% const commentList = it.comments ?? []; %>
+  <% if (commentList.length > 0) { %>
+  <ul class="mb-8 space-y-4">
+    <% commentList.forEach((comment) => { %>
+    <li class="rounded border border-gray-200 bg-gray-50 p-4">
+      <p class="mb-2"><%= comment.content %></p>
+      <time class="text-sm text-gray-500"><%= it.formatDate(comment.createdAt) %></time>
+    </li>
+    <% }) %>
+  </ul>
+  <% } else { %>
+  <p class="mb-8 text-gray-600"><%= it.t('views.comments.index.empty') %></p>
+  <% } %>
+
+  <form action="<%= it.route('createComment', { id: it.article.id }) %>" method="post">
+    <%~ include("../mixins/input", {
+      entity: it.comment,
+      propertyName: 'author',
+      errors: it.errors,
+      translationKey: 'views.comment',
+    }) %>
+    <%~ include("../mixins/textarea", {
+      entity: it.comment,
+      propertyName: 'content',
+      errors: it.errors,
+      translationKey: 'views.comment',
+      placeholder: it.t('views.comment.content.placeholder'),
+      rows: 4,
+    }) %>
+    <%~ include("../mixins/submit", { value: it.t('views.comment.form.submit') }) %>
+  </form>
+</section>

@@ -46,6 +46,28 @@ export default {
           placeholder: "Введите содержимое статьи",
         },
       },
+      comment: {
+        author: {
+          label: "Имя",
+        },
+        content: {
+          label: "Комментарий",
+          placeholder: "Введите комментарий",
+        },
+        form: {
+          submit: "Отправить",
+        },
+        create: {
+          success: "Комментарий добавлен",
+          error: "Не удалось добавить комментарий",
+        },
+      },
+      comments: {
+        index: {
+          header: "Комментарии",
+          empty: "Комментариев пока нет",
+        },
+      },
       articles: {
         index: {
           header: "Статьи",
